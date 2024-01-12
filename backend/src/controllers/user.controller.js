@@ -4,6 +4,23 @@ import {User} from "../models/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
+const generateAccessAndRefreshToken = async(userId)=>{
+    try{
+        const user = await User.findById(userId)
+        const accessToken = user.generateAccessToken();
+        console.log( "accesstoken",accessToken)
+        const refreshToken = user.generateRefreshToken();
+        console.log(accessToken,refreshToken)
+        user.refreshToken = refreshToken
+        await user.save({validateBeforeSave : false})
+
+        return {accessToken,refreshToken}
+
+    }catch(error){
+        throw new ApiError(500, "something went wrong while creating refresh and access token!")
+    }
+}
+
 const registerUser = asyncHandler ( async(req,res)=>{
     const {fullName,userName, password,email} = req.body;//destructuring
     console.log("email",email);
@@ -56,34 +73,19 @@ const registerUser = asyncHandler ( async(req,res)=>{
      )
 
 })
-const generateAccessAndRefreshToken = async(userId)=>{
-    try{
-        const user = await User.findById(userId)
-        const accessToken = user.generateAccessToken();
-        const refreshToken = user.generateRefreshToken();
-        user.refreshToken = refreshToken
-        await user.save({validateBeforeSave : false})
 
-        return {accessToken,refreshToken}
-
-    }catch(error){
-        throw new ApiError(500, "something went wrong while creating refresh and access token!")
-    }
-}
 const loginUser = asyncHandler ( async (req,res)=>{
     const {userName,email,password} = req.body;
-    if(!(userName || email)){
+    if(!userName && !email){
         throw new ApiError (400, "username or email is required");
     }
     const user =await User.findOne({
         $or : [{userName},{email}]
     })
-    console.log(user);
     if(!user){
         throw new ApiError (400, "user does not exists!")
     }
     const isPasswordValid = await user.isPasswordCorrect(password)
-
     if(!isPasswordValid){
         throw new ApiError(400, "password invalid");
     }
